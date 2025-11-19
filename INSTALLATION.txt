@@ -1,0 +1,55 @@
+WHARFLIST - QUICK START GUIDE
+=============================
+
+1. UPLOAD FILES
+   Upload all files to your web server
+
+2. SET PERMISSIONS
+   chmod 755 data/
+
+3. ACCESS SETUP
+   Navigate to: https://yourdomain.com/wharflist/setup.php
+
+4. COMPLETE SETUP WIZARD
+   - Create admin account
+   - Configure SMTP settings (required for email verification)
+   - Set timezone
+
+5. FIRST STEPS
+   - Login at /login.php
+   - Create a list at /lists.php
+   - Add a site at /sites.php
+   - Get embed code and add to your website
+
+SMTP CONFIGURATION
+==================
+Common SMTP Providers:
+
+Gmail:
+  Host: smtp.gmail.com
+  Port: 587
+  Note: Use App Password, not regular password
+
+SendGrid:
+  Host: smtp.sendgrid.net
+  Port: 587
+
+Mailgun:
+  Host: smtp.mailgun.org
+  Port: 587
+
+SECURITY
+========
+- Change default admin password immediately
+- Enable 2FA in settings
+- Keep data/ directory private (not web accessible)
+- Use HTTPS in production
+
+TROUBLESHOOTING
+===============
+- If emails not sending, check SMTP settings
+- Verify data/ directory is writable
+- Check PHP error logs
+- Ensure SQLite is enabled in PHP
+
+For more information, see README.md

@@ -1,0 +1,12 @@
+# Security: Prevent access to sensitive files and app/data directory
+<FilesMatch "\.(env|log|sqlite|db)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent access to app/data directory
+RewriteEngine On
+RewriteRule ^app/data/ - [F,L]
+
+# Prevent directory listing
+Options -Indexes
