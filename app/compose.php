@@ -47,9 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'All fields are required (including at least one list)';
     } else {
         if ($action === 'preview') {
-            // Store preview data
+            // Store preview data (use first list ID)
+            $firstListId = is_array($listIds) ? $listIds[0] : $listIds;
             $previewData = [
-                'list_id' => $listId,
+                'list_id' => $firstListId,
                 'subject' => $subject,
                 'body' => $body
             ];
@@ -559,7 +560,7 @@ $additionalHead = '
         const listInputs = document.querySelectorAll('input[name="list_ids[]"]');
         const subject = document.getElementById('subject').value;
         const text = quill.getText().trim();
-        
+
         // Get Alpine data from the grid container
         const gridContainer = document.querySelector('.grid.grid-cols-1.lg\\:grid-cols-3');
         const alpineData = gridContainer && typeof Alpine !== 'undefined' ? Alpine.$data(gridContainer) : null;
