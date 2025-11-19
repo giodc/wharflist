@@ -44,7 +44,25 @@ if (isInstalled() && !in_array(basename($_SERVER['PHP_SELF']), $publicPages)) {
         if (needsMigrations($db)) {
             runMigrations($db);
         }
+
+        // Load timezone setting from database
+        try {
+            $stmt = $db->query("SELECT value FROM settings WHERE key = 'timezone' LIMIT 1");
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result && $result['value']) {
+                date_default_timezone_set($result['value']);
+            } else {
+                // Fallback to UTC if not set
+                date_default_timezone_set('UTC');
+            }
+        } catch (Exception $e) {
+            // If settings table doesn't exist yet, use UTC
+            date_default_timezone_set('UTC');
+        }
     } catch (Exception $e) {
         error_log("Auto-migration error: " . $e->getMessage());
     }
+} else {
+    // For public pages, use UTC as default
+    date_default_timezone_set('UTC');
 }
