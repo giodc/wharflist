@@ -42,15 +42,113 @@ class Auth
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($user && $this->verifyTOTP($user['totp_secret'], $code)) {
-            unset($_SESSION['pending_2fa']);
-            // Regenerate session ID after 2FA verification
-            session_regenerate_id(true);
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            return true;
+        if ($user) {
+            // Try TOTP first
+            if ($this->verifyTOTP($user['totp_secret'], $code)) {
+                $this->completeLogin($user);
+                return true;
+            }
+
+            // Try backup code
+            if ($this->verifyBackupCode($user['id'], $code)) {
+                $this->completeLogin($user);
+                return true;
+            }
         }
 
+        return false;
+    }
+
+    private function completeLogin($user)
+    {
+        unset($_SESSION['pending_2fa']);
+        // Regenerate session ID after 2FA verification
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+    }
+
+    public function generateBackupCodes()
+    {
+        $codes = [];
+        $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars like I, 1, O, 0
+
+        for ($i = 0; $i < 10; $i++) {
+            $code = '';
+            for ($j = 0; $j < 8; $j++) {
+                $code .= $chars[random_int(0, strlen($chars) - 1)];
+            }
+            $codes[] = $code;
+        }
+
+        return $codes;
+    }
+
+    public function saveBackupCodes($userId, $codes)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // Delete existing codes
+            $stmt = $this->db->prepare("DELETE FROM backup_codes WHERE user_id = ?");
+            $stmt->execute([$userId]);
+
+            // Insert new codes
+            $stmt = $this->db->prepare("INSERT INTO backup_codes (user_id, code) VALUES (?, ?)");
+            foreach ($codes as $code) {
+                // Store hashed version for security
+                $stmt->execute([$userId, password_hash($code, PASSWORD_DEFAULT)]);
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Failed to save backup codes: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function verifyBackupCode($userId, $code)
+    {
+        // Normalize code
+        $code = strtoupper(trim(str_replace(' ', '', $code)));
+
+        // Check format (8 chars)
+        if (strlen($code) !== 8) {
+            return false;
+        }
+
+        // Get all unused codes for user
+        $stmt = $this->db->prepare("SELECT id, code FROM backup_codes WHERE user_id = ? AND used = 0");
+        $stmt->execute([$userId]);
+        $backupCodes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($backupCodes as $storedCode) {
+            if (password_verify($code, $storedCode['code'])) {
+                // Mark as used
+                $updateStmt = $this->db->prepare("UPDATE backup_codes SET used = 1 WHERE id = ?");
+                $updateStmt->execute([$storedCode['id']]);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function getBackupCodesCount($userId)
+    {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM backup_codes WHERE user_id = ? AND used = 0");
+        $stmt->execute([$userId]);
+        return $stmt->fetchColumn();
+    }
+
+    public function regenerateBackupCodes($userId)
+    {
+        $codes = $this->generateBackupCodes();
+        if ($this->saveBackupCodes($userId, $codes)) {
+            return $codes;
+        }
         return false;
     }
 
