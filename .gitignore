@@ -1,3 +1,4 @@
 data/
 .installed
 *.log
+wharflist.db
