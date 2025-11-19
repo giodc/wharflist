@@ -44,12 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db = Database::getInstance();
             $db->initDatabase();
             $conn = $db->getConnection();
-            
+
             // Set secure file permissions on database
             if (file_exists(DB_PATH)) {
                 chmod(DB_PATH, 0600);
             }
-            
+
             // Run initial migrations (ensures schema is up to date)
             require_once __DIR__ . '/app/migrations.php';
             runMigrations($conn);
@@ -94,90 +94,115 @@ $pageTitle = 'Setup';
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Setup - WharfList</title>
-    <script src="https://unpkg.com/tailwindcss-jit-cdn"></script>
-    <style>body { background: #f8f9fa; min-height: 100vh; }</style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<div class="uk-background-muted uk-height-viewport">
-    <div class="uk-container uk-container-small uk-margin-large-top">
-        <div class="uk-card uk-card-default uk-card-body">
-            <h1 class="uk-card-title uk-text-center">
-                <span uk-icon="icon: mail; ratio: 2" class="uk-margin-small-right"></span>
-                WharfList Setup
-            </h1>
-            <p class="uk-text-center uk-text-muted">Configure your email collection system</p>
+
+<body class="bg-gray-50 min-h-screen">
+    <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900">WharfList Setup</h1>
+                <p class="text-gray-600 mt-2">Configure your email collection system</p>
+            </div>
 
             <?php if ($error): ?>
-                <div class="uk-alert-danger" uk-alert>
-                    <a class="uk-alert-close" uk-close></a>
+                <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
                     <p><?= htmlspecialchars($error) ?></p>
                 </div>
             <?php endif; ?>
 
-            <form method="POST" class="uk-form-stacked">
-                <fieldset class="uk-fieldset">
-                    <legend class="uk-legend">Admin Account</legend>
-                    
-                    <div class="uk-margin">
-                        <label class="uk-form-label">Username</label>
-                        <input class="uk-input" type="text" name="username" required>
-                    </div>
+            <form method="POST" class="space-y-8">
+                <!-- Admin Account -->
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Admin Account
+                    </h2>
 
-                    <div class="uk-margin">
-                        <label class="uk-form-label">Email</label>
-                        <input class="uk-input" type="email" name="email" required>
-                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                            <input type="text" name="username" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
 
-                    <div class="uk-margin">
-                        <label class="uk-form-label">Password</label>
-                        <input class="uk-input" type="password" name="password" required>
-                    </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" name="email" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
 
-                    <div class="uk-margin">
-                        <label class="uk-form-label">Confirm Password</label>
-                        <input class="uk-input" type="password" name="confirm_password" required>
-                    </div>
-                </fieldset>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" name="password" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
 
-                <fieldset class="uk-fieldset uk-margin-top">
-                    <legend class="uk-legend">SMTP Configuration</legend>
-                    
-                    <div class="uk-margin">
-                        <label class="uk-form-label">SMTP Host</label>
-                        <input class="uk-input" type="text" name="smtp_host" placeholder="smtp.example.com">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                            <input type="password" name="confirm_password" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
                     </div>
+                </div>
 
-                    <div class="uk-margin">
-                        <label class="uk-form-label">SMTP Port</label>
-                        <input class="uk-input" type="number" name="smtp_port" placeholder="587" value="587">
+                <!-- SMTP Configuration -->
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">SMTP
+                        Configuration</h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">SMTP Host</label>
+                            <input type="text" name="smtp_host" placeholder="smtp.example.com"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">SMTP Port</label>
+                            <input type="number" name="smtp_port" placeholder="587" value="587"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">SMTP Username</label>
+                            <input type="text" name="smtp_user"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">SMTP Password</label>
+                            <input type="password" name="smtp_pass"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">From Email</label>
+                            <input type="email" name="smtp_from" placeholder="noreply@example.com"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
                     </div>
+                </div>
 
-                    <div class="uk-margin">
-                        <label class="uk-form-label">SMTP Username</label>
-                        <input class="uk-input" type="text" name="smtp_user">
-                    </div>
+                <!-- General Settings -->
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">General Settings
+                    </h2>
 
-                    <div class="uk-margin">
-                        <label class="uk-form-label">SMTP Password</label>
-                        <input class="uk-input" type="password" name="smtp_pass">
-                    </div>
-
-                    <div class="uk-margin">
-                        <label class="uk-form-label">From Email</label>
-                        <input class="uk-input" type="email" name="smtp_from" placeholder="noreply@example.com">
-                    </div>
-                </fieldset>
-
-                <fieldset class="uk-fieldset uk-margin-top">
-                    <legend class="uk-legend">General Settings</legend>
-                    
-                    <div class="uk-margin">
-                        <label class="uk-form-label">Timezone</label>
-                        <select class="uk-select" name="timezone">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                        <select name="timezone"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             <option value="UTC">UTC</option>
                             <option value="America/New_York">America/New_York</option>
                             <option value="America/Chicago">America/Chicago</option>
@@ -188,15 +213,15 @@ $pageTitle = 'Setup';
                             <option value="Asia/Tokyo">Asia/Tokyo</option>
                         </select>
                     </div>
-                </fieldset>
-
-                <div class="uk-margin-top">
-                    <button class="uk-button uk-button-primary uk-width-1-1" type="submit">
-                        Complete Setup
-                    </button>
                 </div>
+
+                <button type="submit"
+                    class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                    Complete Setup
+                </button>
             </form>
         </div>
     </div>
 </body>
+
 </html>
