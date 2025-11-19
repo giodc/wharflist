@@ -56,15 +56,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'draft') {
             // Save as draft - store first list ID for backwards compatibility
             $firstListId = is_array($listIds) ? $listIds[0] : $listIds;
+            $listIdsString = is_array($listIds) ? implode(',', $listIds) : $listIds;
+
             if ($editId) {
-                $stmt = $db->prepare("UPDATE email_campaigns SET list_id = ?, subject = ?, body = ? WHERE id = ? AND status = 'draft'");
-                $stmt->execute([$firstListId, $subject, $body, $editId]);
+                $stmt = $db->prepare("UPDATE email_campaigns SET list_id = ?, list_ids = ?, subject = ?, body = ? WHERE id = ? AND status = 'draft'");
+                $stmt->execute([$firstListId, $listIdsString, $subject, $body, $editId]);
                 // Redirect back to edit page
                 header("Location: compose.php?edit=" . $editId . "&success=updated");
                 exit;
             } else {
-                $stmt = $db->prepare("INSERT INTO email_campaigns (list_id, subject, body, status, created_at) VALUES (?, ?, ?, 'draft', CURRENT_TIMESTAMP)");
-                $stmt->execute([$firstListId, $subject, $body]);
+                $stmt = $db->prepare("INSERT INTO email_campaigns (list_id, list_ids, subject, body, status, created_at) VALUES (?, ?, ?, ?, 'draft', CURRENT_TIMESTAMP)");
+                $stmt->execute([$firstListId, $listIdsString, $subject, $body]);
                 $draftId = $db->lastInsertId();
                 // Redirect to edit page for new draft
                 header("Location: compose.php?edit=" . $draftId . "&success=saved");
@@ -126,6 +128,12 @@ $stmt = $db->query("SELECT l.*,
                     FROM lists l ORDER BY l.is_default DESC, l.name");
 $lists = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Create lookup array for list names
+$allLists = [];
+foreach ($lists as $l) {
+    $allLists[$l['id']] = $l['name'];
+}
+
 // Get recent campaigns (drafts and sent)
 $stmt = $db->query("SELECT ec.*, l.name as list_name, 
                     qj.id as job_id, qj.status as job_status, qj.progress, qj.total
@@ -135,7 +143,7 @@ $stmt = $db->query("SELECT ec.*, l.name as list_name,
                     ORDER BY 
                         CASE WHEN ec.status = 'draft' THEN 0 ELSE 1 END,
                         COALESCE(ec.sent_at, ec.created_at) DESC 
-                    LIMIT 10");
+                    LIMIT 5");
 $campaigns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $user = $auth->getCurrentUser();
@@ -143,6 +151,10 @@ $pageTitle = 'Compose Email';
 $additionalHead = '
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <style>
+    .ql-editor {
+    min-height: 500px;
+    }
+
     .ql-editor p {
         margin-bottom: 1em;
     }
@@ -169,44 +181,61 @@ $additionalHead = '
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
-<h1 class="text-3xl font-bold text-gray-900 mb-6">Compose Email</h1>
-
-<!-- Alerts -->
-<?php if ($error): ?>
-    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
-        <p><?= htmlspecialchars($error) ?></p>
+<div class="max-w-6xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Compose Email</h1>
     </div>
-<?php endif; ?>
 
-<?php if ($success): ?>
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-4">
-        <p><?= htmlspecialchars($success) ?></p>
-    </div>
-<?php endif; ?>
+    <?php if ($error): ?>
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span class="block sm:inline"><?= htmlspecialchars($error) ?></span>
+        </div>
+    <?php endif; ?>
 
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <!-- Form Fields (Left) -->
-        <div class="lg:col-span-3">
-            <form method="POST" id="compose-form">
-                <?= getCSRFTokenField() ?>
+    <?php if ($success): ?>
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span class="block sm:inline"><?= htmlspecialchars($success) ?></span>
+        </div>
+    <?php endif; ?>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8" x-data="listSelector(
+        <?= htmlspecialchars(json_encode(array_map(function ($l) {
+            return [
+                'id' => $l['id'],
+                'name' => $l['name'],
+                'count' => $l['subscriber_count']
+            ];
+        }, $lists))) ?>,
+        <?= htmlspecialchars(json_encode($draftData ?
+            (!empty($draftData['list_ids']) ? explode(',', $draftData['list_ids']) : [$draftData['list_id']])
+            : [])) ?>
+    )">
+        <!-- Main Form (Left) -->
+        <div class="lg:col-span-2">
+            <form id="compose-form" method="POST" class="bg-white rounded-lg shadow p-6">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="action" id="form-action" value="send">
+                <input type="hidden" name="body" id="body-content">
                 <?php if ($campaignId): ?>
                     <input type="hidden" name="edit_id" value="<?= $campaignId ?>">
                 <?php endif; ?>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+
+                <!-- Hidden Inputs for List Selection -->
+                <template x-for="id in selected" :key="id">
+                    <input type="hidden" name="list_ids[]" :value="id">
+                </template>
+
+                <div class="mb-6">
+                    <label for="subject" class="block text-sm font-medium text-gray-700 mb-2">Subject Line</label>
                     <input type="text" name="subject" id="subject" required
-                        value="<?= $draftData ? htmlspecialchars($draftData['subject']) : '' ?>"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        value="<?= htmlspecialchars($draftData['subject'] ?? '') ?>"
+                        placeholder="Enter email subject...">
                 </div>
 
-                <div class="mb-4 lg:mb-0">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                    <div id="editor" style="height: 300px; background: white;"
-                        class="border border-gray-300 rounded-bl-lg rounded-br-lg"></div>
-                    <input type="hidden" name="body" id="body-content" required>
-                    <p class="text-xs text-gray-500 mt-1">Use the toolbar to format your message</p>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Content</label>
+                    <div id="editor" class="h-[500px] mb-4"></div>
                 </div>
             </form>
         </div>
@@ -219,16 +248,7 @@ $additionalHead = '
                     <?php if (empty($lists)): ?>
                         <p class="text-gray-500 text-sm p-4 bg-gray-50 rounded-lg">No lists available</p>
                     <?php else: ?>
-                        <div x-data="listSelector(
-                            <?= htmlspecialchars(json_encode(array_map(function ($l) {
-                                return [
-                                    'id' => $l['id'],
-                                    'name' => $l['name'],
-                                    'count' => $l['subscriber_count']
-                                ];
-                            }, $lists))) ?>,
-                            <?= htmlspecialchars(json_encode($draftData ? [$draftData['list_id']] : [])) ?>
-                        )" class="relative">
+                        <div class="relative z-50">
 
                             <!-- Dropdown Button -->
                             <button type="button" @click="open = !open" @click.outside="open = false"
@@ -265,11 +285,6 @@ $additionalHead = '
                                     </div>
                                 </template>
                             </div>
-
-                            <!-- Hidden Inputs for Form Submission -->
-                            <template x-for="id in selected" :key="id">
-                                <input type="hidden" name="list_ids[]" :value="id" form="compose-form">
-                            </template>
 
                             <!-- Summary Stats -->
                             <p class="text-xs text-gray-600 mt-2 font-medium">
@@ -318,80 +333,66 @@ $additionalHead = '
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Recent Campaigns -->
-<div class="bg-white rounded-lg shadow p-6">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Campaigns</h3>
-    <?php if (empty($campaigns)): ?>
-        <p class="text-gray-500 text-sm">No campaigns sent yet</p>
-    <?php else: ?>
-        <div class="space-y-4">
-            <?php foreach ($campaigns as $campaign): ?>
-                <div class="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
-                    <div class="flex items-start justify-between mb-2">
-                        <div class="font-semibold text-gray-900 text-sm flex-1"><?= htmlspecialchars($campaign['subject']) ?>
-                        </div>
-                        <?php if ($campaign['status'] === 'draft'): ?>
-                            <span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded-full">Draft</span>
-                        <?php elseif ($campaign['job_status']): ?>
-                            <?php if ($campaign['job_status'] === 'pending'): ?>
-                                <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">Queued</span>
-                            <?php elseif ($campaign['job_status'] === 'processing'): ?>
-                                <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">Sending</span>
-                            <?php elseif ($campaign['job_status'] === 'completed'): ?>
-                                <span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Sent</span>
-                            <?php elseif ($campaign['job_status'] === 'failed'): ?>
-                                <span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">Failed</span>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </div>
-                    <div class="text-xs text-gray-500 space-y-1">
-                        <div><?= htmlspecialchars($campaign['list_name']) ?></div>
-                        <?php if ($campaign['status'] === 'draft'): ?>
-                            <div>Created: <?= date('M d, Y H:i', strtotime($campaign['created_at'])) ?></div>
-                        <?php elseif ($campaign['job_status'] === 'processing' && $campaign['total'] > 0): ?>
-                            <div><?= $campaign['progress'] ?> / <?= $campaign['total'] ?> sent</div>
-                            <div><?= date('M d, Y H:i', strtotime($campaign['sent_at'])) ?></div>
-                        <?php else: ?>
-                            <div>Sent to <?= $campaign['sent_count'] ?> subscribers</div>
-                            <div><?= date('M d, Y H:i', strtotime($campaign['sent_at'])) ?></div>
-                        <?php endif; ?>
-                        <div class="mt-2 flex gap-2">
-                            <?php if ($campaign['status'] === 'draft'): ?>
-                                <a href="?edit=<?= $campaign['id'] ?>"
-                                    class="inline-flex items-center text-xs text-blue-600 hover:text-blue-800">
-                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
-                                        </path>
-                                    </svg>
-                                    Edit Draft
-                                </a>
-                            <?php else: ?>
-                                <?php if ($campaign['job_id']): ?>
-                                    <a href="campaign-status.php?job_id=<?= $campaign['job_id'] ?>"
-                                        class="inline-flex items-center text-xs text-blue-600 hover:text-blue-800">
-                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
-                                            </path>
-                                        </svg>
-                                        View Status
-                                    </a>
-                                <?php endif; ?>
-                            <?php endif; ?>
-                        </div>
+        <!-- Send Confirmation Modal -->
+        <template x-teleport="body">
+            <div x-show="showSendConfirm" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+                style="display: none;">
+                <div @click.away="showSendConfirm = false" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    class="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Confirm Send</h3>
+                    <p class="text-gray-600 mb-6">Are you sure you want to send this email to all subscribers in the
+                        selected lists?</p>
+                    <div class="flex gap-3 justify-end">
+                        <button @click="showSendConfirm = false"
+                            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button @click="showSendConfirm = false; confirmSend()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            Send Now
+                        </button>
                     </div>
                 </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-</div>
-</div>
+            </div>
+        </template>
+
+        <!-- Error Modal -->
+        <template x-teleport="body">
+            <div x-show="showError" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+                style="display: none;">
+                <div @click.away="showError = false" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    class="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Error</h3>
+                    <p class="text-gray-600 mb-6" x-text="errorMessage"></p>
+                    <div class="flex justify-end">
+                        <button @click="showError = false"
+                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
 </div>
 
 <!-- Load Quill JS with error handling -->
@@ -420,6 +421,9 @@ $additionalHead = '
             open: false,
             lists: initialLists,
             selected: initialSelected.map(id => parseInt(id)).filter(id => !isNaN(id)),
+            showSendConfirm: false,
+            showError: false,
+            errorMessage: '',
 
             toggle(id) {
                 id = parseInt(id);
@@ -487,8 +491,18 @@ $additionalHead = '
     //Button action functions
     function sendEmail() {
         if (!validateForm()) return;
-        if (!confirm('Are you sure you want to send this email to all subscribers?')) return;
 
+        // Get Alpine data from the grid container
+        const gridContainer = document.querySelector('.grid.grid-cols-1.lg\\:grid-cols-3');
+        if (gridContainer && typeof Alpine !== 'undefined') {
+            const alpineData = Alpine.$data(gridContainer);
+            alpineData.showSendConfirm = true;
+        } else {
+            console.error('Could not access Alpine data');
+        }
+    }
+
+    function confirmSend() {
         document.getElementById('body-content').value = quill.root.innerHTML;
         document.getElementById('form-action').value = 'send';
         document.getElementById('compose-form').submit();
@@ -545,17 +559,36 @@ $additionalHead = '
         const listInputs = document.querySelectorAll('input[name="list_ids[]"]');
         const subject = document.getElementById('subject').value;
         const text = quill.getText().trim();
+        
+        // Get Alpine data from the grid container
+        const gridContainer = document.querySelector('.grid.grid-cols-1.lg\\:grid-cols-3');
+        const alpineData = gridContainer && typeof Alpine !== 'undefined' ? Alpine.$data(gridContainer) : null;
 
         if (listInputs.length === 0) {
-            alert('Please select at least one list');
+            if (alpineData) {
+                alpineData.errorMessage = 'Please select at least one list';
+                alpineData.showError = true;
+            } else {
+                alert('Please select at least one list');
+            }
             return false;
         }
         if (!subject.trim()) {
-            alert('Please enter a subject');
+            if (alpineData) {
+                alpineData.errorMessage = 'Please enter a subject';
+                alpineData.showError = true;
+            } else {
+                alert('Please enter a subject');
+            }
             return false;
         }
         if (text.length === 0) {
-            alert('Please enter a message');
+            if (alpineData) {
+                alpineData.errorMessage = 'Please enter a message';
+                alpineData.showError = true;
+            } else {
+                alert('Please enter a message');
+            }
             return false;
         }
         return true;
