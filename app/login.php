@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/csrf-helper.php';
 
 $auth = new Auth();
 
@@ -13,6 +14,10 @@ if ($auth->isLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validate CSRF token
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Security token invalid. Please try again.';
+    } else
     if (isset($_POST['totp_code'])) {
         // Verify 2FA
         if ($auth->verify2FA($_POST['totp_code'])) {
@@ -75,6 +80,7 @@ $show2FA = isset($_SESSION['pending_2fa']);
             <?php if ($show2FA): ?>
                 <!-- 2FA Form -->
                 <form method="POST" class="space-y-6">
+                    <?= getCSRFTokenField() ?>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             2FA Code
@@ -100,6 +106,7 @@ $show2FA = isset($_SESSION['pending_2fa']);
             <?php else: ?>
                 <!-- Login Form -->
                 <form method="POST" class="space-y-6">
+                    <?= getCSRFTokenField() ?>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             Username or Email

@@ -82,10 +82,12 @@ class Database {
         CREATE TABLE IF NOT EXISTS queue_jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             campaign_id INTEGER NOT NULL,
+            list_ids TEXT,
             status TEXT DEFAULT 'pending',
             progress INTEGER DEFAULT 0,
             total INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            started_at DATETIME,
             completed_at DATETIME,
             FOREIGN KEY (campaign_id) REFERENCES email_campaigns(id)
         );

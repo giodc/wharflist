@@ -22,6 +22,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </a>
         </li>
         <li>
+            <a href="compose.php" @click="mobileMenuOpen = false" class="flex items-center space-x-2 lg:space-x-3 px-2 lg:px-4 py-2 lg:py-3 rounded-lg <?= $currentPage === 'compose.php' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100' ?> transition text-sm lg:text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                <span class="font-medium">Compose</span>
+            </a>
+        </li>
+        <li>
             <a href="subscribers.php" @click="mobileMenuOpen = false" class="flex items-center space-x-2 lg:space-x-3 px-2 lg:px-4 py-2 lg:py-3 rounded-lg <?= $currentPage === 'subscribers.php' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100' ?> transition text-sm lg:text-base">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
@@ -51,14 +59,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                 </svg>
                 <span class="font-medium">Import</span>
-            </a>
-        </li>
-        <li>
-            <a href="compose.php" @click="mobileMenuOpen = false" class="flex items-center space-x-2 lg:space-x-3 px-2 lg:px-4 py-2 lg:py-3 rounded-lg <?= $currentPage === 'compose.php' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100' ?> transition text-sm lg:text-base">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                </svg>
-                <span class="font-medium">Compose</span>
             </a>
         </li>
         <li>

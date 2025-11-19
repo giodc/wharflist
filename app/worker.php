@@ -46,15 +46,18 @@ try {
         $settings[$row['key']] = $row['value'];
     }
     
-    // Get subscribers for this campaign's list (only verified, not globally unsubscribed, not list-unsubscribed)
+    // Get subscribers for this campaign's list(s) - supports multiple lists
+    $listIds = !empty($job['list_ids']) ? explode(',', $job['list_ids']) : [$campaign['list_id']];
+    $placeholders = str_repeat('?,', count($listIds) - 1) . '?';
+    
     $stmt = $db->prepare("SELECT DISTINCT s.* 
                           FROM subscribers s
                           INNER JOIN subscriber_lists sl ON s.id = sl.subscriber_id
-                          WHERE sl.list_id = ? 
+                          WHERE sl.list_id IN ($placeholders)
                           AND s.verified = 1 
                           AND s.unsubscribed = 0
                           AND sl.unsubscribed = 0");
-    $stmt->execute([$campaign['list_id']]);
+    $stmt->execute($listIds);
     $subscribers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     $total = count($subscribers);

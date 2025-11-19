@@ -34,9 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Invalid email address';
     } else {
         try {
-            // Create data directory
+            // Create data directory with secure permissions
             if (!is_dir(__DIR__ . '/app/data')) {
-                mkdir(__DIR__ . '/app/data', 0755, true);
+                mkdir(__DIR__ . '/app/data', 0700, true);
             }
 
             // Initialize database
@@ -44,6 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db = Database::getInstance();
             $db->initDatabase();
             $conn = $db->getConnection();
+            
+            // Set secure file permissions on database
+            if (file_exists(DB_PATH)) {
+                chmod(DB_PATH, 0600);
+            }
+            
+            // Run initial migrations (ensures schema is up to date)
+            require_once __DIR__ . '/app/migrations.php';
+            runMigrations($conn);
 
             // Insert admin user
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);

@@ -199,13 +199,13 @@
                 
                 // Silent fail if honeypot is filled (bot detected)
                 if (honeypot && honeypot.value !== '') {
-                    console.log('Bot detected: honeypot filled');
+                    console.log('Bot detected (honeypot)');
                     return false;
                 }
                 
-                // Silent fail if submitted too fast (< 2 seconds, likely bot)
-                if (timeDiff < 2000) {
-                    console.log('Bot detected: too fast');
+                // Silent fail if submitted too quickly (less than 1 second)
+                if (timeDiff < 1000) {
+                    console.log('Bot detected (timing): ' + timeDiff + 'ms');
                     return false;
                 }
                 
@@ -228,7 +228,7 @@
                     body: JSON.stringify({
                         api_key: apiKey,
                         email: email,
-                        _t: Date.now(),
+                        _t: timestamp,
                         _hp: ''
                     })
                 })

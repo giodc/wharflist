@@ -17,6 +17,8 @@ class Auth {
                 $_SESSION['pending_2fa'] = $user['id'];
                 return ['success' => true, 'requires_2fa' => true];
             } else {
+                // Regenerate session ID to prevent session fixation
+                session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
                 return ['success' => true, 'requires_2fa' => false];
@@ -38,6 +40,8 @@ class Auth {
 
         if ($user && $this->verifyTOTP($user['totp_secret'], $code)) {
             unset($_SESSION['pending_2fa']);
+            // Regenerate session ID after 2FA verification
+            session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             return true;

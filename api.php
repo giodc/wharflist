@@ -19,15 +19,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Catch any PHP errors and return as JSON
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     http_response_code(500);
-    echo json_encode([
+    $response = [
         'success' => false,
-        'message' => 'Server error occurred',
-        'debug' => [
+        'message' => 'Server error occurred'
+    ];
+    // Only include debug info if display_errors is enabled
+    if (ini_get('display_errors') == '1') {
+        $response['debug'] = [
             'error' => $errstr,
             'file' => $errfile,
             'line' => $errline
-        ]
-    ]);
+        ];
+    }
+    echo json_encode($response);
     exit;
 });
 
@@ -110,21 +114,14 @@ try {
     }
     
     // 2. Timing check - if request is too fast, silently reject
-    // TEMPORARILY DISABLED FOR TESTING
-    /*
+    // Note: 1 second threshold allows for fast but human typing speeds
     if ($timestamp > 0) {
         $timeDiff = (microtime(true) * 1000) - $timestamp;
-        if ($timeDiff < 2000) {
+        if ($timeDiff < 1000) {
             error_log("Bot detected (timing): " . $email . " - Submitted in {$timeDiff}ms - Silently rejected");
             sendResponse(true, 'Please check your email to verify your subscription');
         }
-    }
-    */
-    
-    // Log timing for debugging
-    if ($timestamp > 0) {
-        $timeDiff = (microtime(true) * 1000) - $timestamp;
-        error_log("Timing check: " . $email . " - Submitted in {$timeDiff}ms");
+        error_log("Timing check passed: " . $email . " - Submitted in {$timeDiff}ms");
     }
     
     error_log("Anti-spam checks passed for: " . $email);
@@ -148,8 +145,6 @@ try {
     }
     
     // Check domain (if provided in request)
-    // TEMPORARILY DISABLED FOR TESTING - ENABLE IN PRODUCTION!
-    /*
     if (isset($_SERVER['HTTP_REFERER'])) {
         $refererHost = parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST);
         $configuredDomain = $site['domain'];
@@ -164,13 +159,6 @@ try {
             error_log("Domain mismatch: '$refererNormalized' !== '$configuredNormalized'");
             sendResponse(false, 'Domain not allowed');
         }
-    }
-    */
-    
-    // Log domain info for debugging
-    if (isset($_SERVER['HTTP_REFERER'])) {
-        $refererHost = parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST);
-        error_log("Domain check DISABLED - Referer: $refererHost, Configured: {$site['domain']}");
     }
     
     // Rate limiting
@@ -260,7 +248,12 @@ try {
     
 } catch (Exception $e) {
     error_log('API Exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-    sendResponse(false, 'An error occurred: ' . $e->getMessage());
+    // Only show detailed error message if display_errors is enabled
+    if (ini_get('display_errors') == '1') {
+        sendResponse(false, 'An error occurred: ' . $e->getMessage());
+    } else {
+        sendResponse(false, 'An error occurred. Please try again later.');
+    }
 }
 
 // Catch any uncaught errors
@@ -269,10 +262,14 @@ register_shutdown_function(function() {
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
         if (ob_get_level()) ob_end_clean();
         http_response_code(500);
-        echo json_encode([
+        $response = [
             'success' => false,
-            'message' => 'A fatal error occurred',
-            'debug' => $error
-        ]);
+            'message' => 'A fatal error occurred'
+        ];
+        // Only include debug info if display_errors is enabled
+        if (ini_get('display_errors') == '1') {
+            $response['debug'] = $error;
+        }
+        echo json_encode($response);
     }
 });

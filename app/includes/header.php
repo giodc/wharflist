@@ -126,9 +126,18 @@
         }
         
         /* Apply grayscale to any remaining colored elements */
-        * {
+        /* Exclude fixed positioned elements to prevent stacking context issues */
+        *:not(.fixed):not([class*="fixed"]) {
             -webkit-filter: grayscale(100%);
             filter: grayscale(100%);
+        }
+        
+        /* Specifically exclude modal overlays and content from filter */
+        .fixed,
+        [class*="z-[9"],
+        [style*="position: fixed"] {
+            -webkit-filter: none !important;
+            filter: none !important;
         }
     </style>
 </head>
@@ -144,7 +153,7 @@
                         <path x-show="mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </button>
-                <h1 class="text-xl lg:text-2xl font-bold text-gray-900">WharfList</h1>
+                <h1 class="text-xl lg:text-2xl font-bold text-gray-900"><img src="/includes/logo.svg" alt="WharfList" class="w-3 h-3 mr-2 inline">WharfList</h1>
             </div>
             
             <!-- User Dropdown -->
@@ -162,13 +171,16 @@
                      style="display: none;"
                      class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                     <a href="settings.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
-                    <a href="logout.php" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Logout</a>
+                    <form method="POST" action="logout.php" class="m-0">
+                        <?php require_once __DIR__ . '/../csrf-helper.php'; echo getCSRFTokenField(); ?>
+                        <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Logout</button>
+                    </form>
                 </div>
             </div>
         </div>
     </header>
 
-    <div class="flex min-h-screen">
+    <div class="flex min-h-screen relative">
         <!-- Mobile Sidebar Overlay -->
         <div x-show="mobileMenuOpen" 
              @click="mobileMenuOpen = false"
@@ -184,10 +196,10 @@
 
         <!-- Sidebar (Desktop: always visible, Mobile: offcanvas) -->
         <aside :class="mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'"
-               class="fixed lg:sticky top-0 left-0 z-50 lg:z-auto w-64 lg:w-64 bg-white border-r border-gray-200 h-screen overflow-y-auto pt-2 flex-shrink-0 transform transition-transform duration-300 ease-in-out lg:translate-x-0">
+               class="fixed lg:sticky top-0 left-0 z-50 lg:z-10 w-64 lg:w-64 bg-white border-r border-gray-200 h-screen overflow-y-auto pt-2 flex-shrink-0 transform transition-transform duration-300 ease-in-out lg:translate-x-0">
             <?php include __DIR__ . '/nav.php'; ?>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 p-4 lg:p-8 bg-gray-50 min-w-0 w-full lg:w-auto">
-            <div class="max-w-7xl mx-auto">
+        <main class="flex-1 p-4 lg:p-8 bg-gray-50 min-w-0 w-full lg:w-auto overflow-visible">
+            <div class="max-w-7xl mx-auto overflow-visible">

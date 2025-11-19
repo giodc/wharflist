@@ -1,8 +1,14 @@
 <?php
 // Error reporting - hide deprecation warnings in production
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+
+// Session security configuration
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 1 : 0);
+ini_set('session.cookie_samesite', 'Strict');
+ini_set('session.use_strict_mode', 1);
 
 session_start();
 
@@ -25,4 +31,19 @@ $publicPages = ['setup.php', 'api.php', 'widget.js', 'verify.php', 'unsubscribe.
 if (!isInstalled() && !in_array(basename($_SERVER['PHP_SELF']), $publicPages)) {
     header('Location: /setup.php');
     exit;
+}
+
+// Run auto-migrations after installation (only if needed)
+if (isInstalled() && !in_array(basename($_SERVER['PHP_SELF']), $publicPages)) {
+    require_once APP_PATH . '/database.php';
+    require_once APP_PATH . '/migrations.php';
+    try {
+        $db = Database::getInstance()->getConnection();
+        // Only run if migrations are needed (checks version, very fast)
+        if (needsMigrations($db)) {
+            runMigrations($db);
+        }
+    } catch (Exception $e) {
+        error_log("Auto-migration error: " . $e->getMessage());
+    }
 }
