@@ -22,7 +22,22 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$user) {
     echo "No user with 2FA enabled found.\n";
-    exit;
+
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (isset($_SESSION['temp_totp_secret'])) {
+        echo "Found temporary 2FA secret in session!\n";
+        $user = [
+            'username' => 'Current User (Pending Setup)',
+            'email' => 'N/A',
+            'totp_secret' => $_SESSION['temp_totp_secret']
+        ];
+    } else {
+        echo "No temporary secret in session either.\n";
+        exit;
+    }
 }
 
 echo "User: {$user['username']} ({$user['email']})\n";
