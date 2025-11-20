@@ -58,26 +58,22 @@ $show2FA = isset($_SESSION['pending_2fa']);
     <script src="https://unpkg.com/tailwindcss-jit-cdn"></script>
 </head>
 
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
         <!-- Logo & Title -->
         <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
-                    </path>
-                </svg>
+            <div class="inline-flex items-center justify-center mb-4">
+                <img src="/app/includes/logo.svg" alt="WharfList" class="w-16 h-16">
             </div>
             <h1 class="text-3xl font-bold text-gray-900">WharfList</h1>
             <p class="text-gray-600 mt-2">Sign in to your account</p>
         </div>
 
         <!-- Login Card -->
-        <div class="bg-white rounded-2xl shadow-xl p-8">
+        <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <?php if ($error): ?>
-                <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p class="text-sm text-red-800"><?= htmlspecialchars($error) ?></p>
+                <div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p class="text-sm text-gray-800"><?= htmlspecialchars($error) ?></p>
                 </div>
             <?php endif; ?>
 
@@ -90,13 +86,13 @@ $show2FA = isset($_SESSION['pending_2fa']);
                             2FA Code or Backup Code
                         </label>
                         <input type="text" name="totp_code" maxlength="8" placeholder="000000" required autofocus
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest">
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-center text-2xl tracking-widest">
                         <p class="mt-2 text-sm text-gray-500">Enter the 6-digit code from your app or an 8-character backup
                             code</p>
                     </div>
 
                     <button type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                        class="w-full bg-gray-900 hover:bg-black text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -113,7 +109,7 @@ $show2FA = isset($_SESSION['pending_2fa']);
                             Username or Email
                         </label>
                         <input type="text" name="username" required autofocus
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent">
                     </div>
 
                     <div>
@@ -121,11 +117,11 @@ $show2FA = isset($_SESSION['pending_2fa']);
                             Password
                         </label>
                         <input type="password" name="password" required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent">
                     </div>
 
                     <button type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                        class="w-full bg-gray-900 hover:bg-black text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1">
@@ -139,7 +135,7 @@ $show2FA = isset($_SESSION['pending_2fa']);
 
         <!-- Footer -->
         <p class="text-center text-sm text-gray-600 mt-8">
-            WharfList Email Collection System
+
         </p>
     </div>
 </body>

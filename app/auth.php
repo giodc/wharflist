@@ -210,19 +210,15 @@ class Auth
         }
 
         $timeSlice = floor(time() / 30);
-        error_log("2FA: Verifying code $code at timeSlice $timeSlice");
 
         // Check current and adjacent time slices for clock skew
         for ($i = -1; $i <= 1; $i++) {
             $calculatedCode = $this->getTOTPCode($secret, $timeSlice + $i);
-            error_log("2FA: Calculated code for timeSlice " . ($timeSlice + $i) . ": " . $calculatedCode);
             if ($calculatedCode === $code) {
-                error_log("2FA: Code matched!");
                 return true;
             }
         }
 
-        error_log("2FA: No match found");
         return false;
     }
 
@@ -268,7 +264,7 @@ class Auth
 
         for ($i = 0; $i < count($secret); $i = $i + 8) {
             $x = '';
-            if (!in_array($secret[$i], $base32charsFlipped)) {
+            if (!array_key_exists($secret[$i], $base32charsFlipped)) {
                 return false;
             }
             for ($j = 0; $j < 8; $j++) {

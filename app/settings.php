@@ -225,8 +225,8 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                 Security
             </button>
             <button @click="activeTab = 'users'"
-                    :class="activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition">
+                :class="activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="py-4 px-1 border-b-2 font-medium text-sm transition">
                 Users
             </button>
         </nav>
@@ -422,23 +422,27 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
     <div x-show="activeTab === 'security'" class="space-y-6" style="display: none;">
         <!-- Backup Codes Modal -->
         <?php if (isset($_SESSION['new_backup_codes'])): ?>
-        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Save Your Backup Codes</h3>
-                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4 text-sm">
-                    <strong>Important:</strong> These codes will only be shown once. Save them in a secure place. You can use these to log in if you lose access to your authenticator app.
-                </div>
-                <div class="grid grid-cols-2 gap-2 mb-6 font-mono text-sm bg-gray-50 p-4 rounded border border-gray-200">
-                    <?php foreach ($_SESSION['new_backup_codes'] as $code): ?>
-                        <div class="text-center py-1 select-all"><?= htmlspecialchars($code) ?></div>
-                    <?php endforeach; ?>
-                </div>
-                <div class="flex justify-end">
-                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">I've Saved Them</button>
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Save Your Backup Codes</h3>
+                    <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4 text-sm">
+                        <strong>Important:</strong> These codes will only be shown once. Save them in a secure place. You
+                        can use these to log in if you lose access to your authenticator app.
+                    </div>
+                    <div
+                        class="grid grid-cols-2 gap-2 mb-6 font-mono text-sm bg-gray-50 p-4 rounded border border-gray-200">
+                        <?php foreach ($_SESSION['new_backup_codes'] as $code): ?>
+                            <div class="text-center py-1 select-all"><?= htmlspecialchars($code) ?></div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="flex justify-end">
+                        <button onclick="this.closest('.fixed').remove()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">I've Saved
+                            Them</button>
+                    </div>
                 </div>
             </div>
-        </div>
-        <?php unset($_SESSION['new_backup_codes']); ?>
+            <?php unset($_SESSION['new_backup_codes']); ?>
         <?php endif; ?>
 
         <!-- Change Password -->
@@ -495,9 +499,10 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                         <div class="flex-1">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
                             <input type="password" name="password" required placeholder="Enter password to regenerate"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         </div>
-                        <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                        <button type="submit"
+                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
                             Regenerate Codes
                         </button>
                     </form>
@@ -507,8 +512,8 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                     <form method="POST">
                         <input type="hidden" name="action" value="disable_2fa">
                         <button type="submit"
-                                onclick="return confirm('Are you sure you want to disable 2FA? This will also delete your backup codes.')"
-                                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                            onclick="return confirm('Are you sure you want to disable 2FA? This will also delete your backup codes.')"
+                            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                             Disable 2FA
                         </button>
                     </form>
@@ -560,25 +565,27 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
                         <input type="text" name="username" required
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                         <input type="email" name="email" required
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
                         <input type="password" name="password" required minlength="8"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
                         <input type="password" name="confirm_password" required minlength="8"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                 </div>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Create User</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Create
+                    User</button>
             </form>
         </div>
 
@@ -591,11 +598,16 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">2FA Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                User</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Email</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                2FA Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Created</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -605,7 +617,8 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                                     <div class="text-sm font-medium text-gray-900">
                                         <?= htmlspecialchars($user['username']) ?>
                                         <?php if ($user['id'] == $currentUser['id']): ?>
-                                            <span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">You</span>
+                                            <span
+                                                class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">You</span>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -614,9 +627,11 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <?php if ($user['totp_enabled']): ?>
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Enabled</span>
+                                        <span
+                                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Enabled</span>
                                     <?php else: ?>
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Disabled</span>
+                                        <span
+                                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Disabled</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -626,13 +641,16 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                                     <?php if ($user['id'] != $currentUser['id']): ?>
                                         <div class="flex justify-end gap-3">
                                             <?php if ($user['totp_enabled']): ?>
-                                                <form method="POST" class="inline-block" onsubmit="return confirm('Disable 2FA for this user?');">
+                                                <form method="POST" class="inline-block"
+                                                    onsubmit="return confirm('Disable 2FA for this user?');">
                                                     <input type="hidden" name="action" value="reset_user_2fa">
                                                     <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
-                                                    <button type="submit" class="text-orange-600 hover:text-orange-900">Reset 2FA</button>
+                                                    <button type="submit" class="text-orange-600 hover:text-orange-900">Reset
+                                                        2FA</button>
                                                 </form>
                                             <?php endif; ?>
-                                            <form method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                                            <form method="POST" class="inline-block"
+                                                onsubmit="return confirm('Are you sure you want to delete this user?');">
                                                 <input type="hidden" name="action" value="delete_user">
                                                 <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                                 <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
