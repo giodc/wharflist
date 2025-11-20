@@ -468,14 +468,19 @@ $additionalHead = '
             quill = new Quill('#editor', {
                 theme: 'snow',
                 modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline'],
-                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                        [{ 'align': [] }],
-                        ['link'],
-                        ['clean']
-                    ]
+                    toolbar: {
+                        container: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                            [{ 'align': [] }],
+                            ['link', 'image'],
+                            ['clean']
+                        ],
+                        handlers: {
+                            image: imageHandler
+                        }
+                    }
                 },
                 placeholder: 'Compose your email message...'
             });
@@ -487,6 +492,52 @@ $additionalHead = '
                 quill.root.innerHTML = <?= json_encode($draftData['body']) ?>;
             <?php endif; ?>
         }
+    }
+
+    function imageHandler() {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+
+        input.onchange = async () => {
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const range = quill.getSelection(true);
+
+                // Show loading placeholder
+                quill.insertText(range.index, 'Uploading image...', 'bold', true);
+
+                const response = await fetch('upload_image.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Upload failed');
+                }
+
+                const data = await response.json();
+
+                // Remove placeholder
+                quill.deleteText(range.index, 16);
+
+                // Insert image
+                quill.insertEmbed(range.index, 'image', data.url);
+
+            } catch (error) {
+                console.error('Error uploading image:', error);
+                alert('Failed to upload image');
+                // Remove placeholder on error
+                const range = quill.getSelection(true);
+                quill.deleteText(range.index, 16);
+            }
+        };
     }
 
     //Button action functions
