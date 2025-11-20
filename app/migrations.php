@@ -29,13 +29,37 @@ function runMigrations($db, $force = false)
 {
     // Check current version
     $currentVersion = getMigrationsVersion($db);
-    $latestVersion = 2; // Increment this when adding new migrations
+    $latestVersion = 3; // Increment this when adding new migrations
 
     // Skip if already at latest version (unless forced)
     if (!$force && $currentVersion >= $latestVersion) {
         return 0;
     }
     $migrations = [
+        'add_list_ids_to_email_campaigns' => function ($db) {
+            // Check if column already exists
+            $stmt = $db->query("PRAGMA table_info(email_campaigns)");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $hasListIds = false;
+
+            foreach ($columns as $column) {
+                if ($column['name'] === 'list_ids') {
+                    $hasListIds = true;
+                    break;
+                }
+            }
+
+            if (!$hasListIds) {
+                $db->exec("ALTER TABLE email_campaigns ADD COLUMN list_ids TEXT");
+                error_log("Migration: Added list_ids column to email_campaigns");
+
+                // Backfill existing campaigns
+                $db->exec("UPDATE email_campaigns SET list_ids = list_id WHERE list_ids IS NULL");
+                error_log("Migration: Backfilled list_ids for email_campaigns");
+                return true;
+            }
+            return false;
+        },
         'add_list_ids_to_queue_jobs' => function ($db) {
             // Check if column already exists
             $stmt = $db->query("PRAGMA table_info(queue_jobs)");
@@ -133,5 +157,5 @@ function runMigrations($db, $force = false)
 function needsMigrations($db)
 {
     $currentVersion = getMigrationsVersion($db);
-    return $currentVersion < 2; // Update this when adding new migrations
+    return $currentVersion < 3; // Update this when adding new migrations
 }
