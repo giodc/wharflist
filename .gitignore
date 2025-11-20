@@ -1,4 +1,6 @@
 data/
+app/data/
+app/uploads/
 .installed
 *.log
 wharflist.db
