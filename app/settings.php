@@ -67,6 +67,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute(['delay_between_emails', $delayBetweenEmails]);
 
         $success = 'SMTP settings updated';
+    } elseif ($action === 'test_smtp') {
+        $smtpHost = trim($_POST['smtp_host'] ?? '');
+        $smtpPort = trim($_POST['smtp_port'] ?? '587');
+        $smtpUser = trim($_POST['smtp_user'] ?? '');
+        $smtpPass = $_POST['smtp_pass'] ?? '';
+        $smtpFrom = trim($_POST['smtp_from'] ?? '');
+        $testEmail = trim($_POST['test_email'] ?? '');
+        
+        // If password is empty, try to get it from DB (for existing configuration)
+        if (empty($smtpPass)) {
+            $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'smtp_pass'");
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $smtpPass = $result['value'] ?? '';
+        }
+
+        if (empty($testEmail) || !filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Please provide a valid test email address';
+        } elseif (empty($smtpHost)) {
+            $error = 'SMTP Host is required';
+        } else {
+            require_once __DIR__ . '/phpmailer.php';
+            
+            try {
+                $mailer = new SimpleMailer($smtpHost, $smtpPort, $smtpUser, $smtpPass);
+                $subject = "WharfList SMTP Test";
+                $message = "
+                <html>
+                <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                    <h2>SMTP Test Successful!</h2>
+                    <p>If you're reading this, your SMTP settings are working correctly.</p>
+                    <hr>
+                    <p><small>Sent from WharfList at " . date('Y-m-d H:i:s') . "</small></p>
+                </body>
+                </html>
+                ";
+                
+                if ($mailer->send($smtpFrom, $testEmail, $subject, $message)) {
+                    $success = "Test email sent successfully to $testEmail";
+                } else {
+                    $error = "Failed to send test email. Check your settings and try again.";
+                }
+            } catch (Exception $e) {
+                $error = "SMTP Error: " . $e->getMessage();
+            }
+        }
     } elseif ($action === 'password') {
         $currentPassword = $_POST['current_password'] ?? '';
         $newPassword = $_POST['new_password'] ?? '';
@@ -185,12 +231,25 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $settings[$row['key']] = $row['value'];
 }
 
+// Determine active tab based on action
+$activeTab = 'general';
+if (isset($_POST['action'])) {
+    $act = $_POST['action'];
+    if (in_array($act, ['smtp', 'test_smtp'])) {
+        $activeTab = 'smtp';
+    } elseif (in_array($act, ['password', 'enable_2fa', 'verify_2fa', 'disable_2fa', 'regenerate_backup_codes'])) {
+        $activeTab = 'security';
+    } elseif (in_array($act, ['add_user', 'delete_user', 'reset_user_2fa'])) {
+        $activeTab = 'users';
+    }
+}
+
 $pageTitle = 'Settings';
 $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
-<div x-data="{ activeTab: 'general' }">
+<div x-data="{ activeTab: '<?= $activeTab ?>' }">
     <h1 class="text-3xl font-bold text-gray-900 mb-6">Settings</h1>
 
     <!-- Alerts -->
@@ -362,7 +421,7 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
     <div x-show="activeTab === 'smtp'" class="bg-white rounded-lg shadow p-6" style="display: none;">
         <form method="POST">
             <input type="hidden" name="action" value="smtp">
-
+            
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">SMTP Host</label>
                 <input type="text" name="smtp_host" value="<?= htmlspecialchars($settings['smtp_host'] ?? '') ?>"
@@ -411,6 +470,23 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 <p class="text-xs text-gray-500 mt-1">Delay in seconds between each email (0 = no delay, helps avoid
                     rate limits)</p>
+            </div>
+
+            <hr class="my-6 border-gray-200">
+            <h4 class="text-md font-semibold text-gray-900 mb-4">Test Configuration</h4>
+            
+            <div class="flex gap-4 items-end mb-6">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Test Recipient Email</label>
+                    <input type="email" name="test_email" 
+                           value="<?= htmlspecialchars($_POST['test_email'] ?? '') ?>"
+                           placeholder="you@example.com"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button type="button" onclick="this.form.action.value='test_smtp'; this.form.submit();"
+                        class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition whitespace-nowrap h-[42px]">
+                    Test Connection
+                </button>
             </div>
 
             <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Save
