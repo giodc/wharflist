@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'general') {
         $timezone = $_POST['timezone'] ?? 'UTC';
         $siteName = trim($_POST['site_name'] ?? 'WharfList');
+        $siteUrl = trim($_POST['site_url'] ?? '');
         $emailLogo = trim($_POST['email_logo'] ?? '');
         $logoPosition = $_POST['logo_position'] ?? 'center';
         $logoName = trim($_POST['logo_name'] ?? '');
@@ -34,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $db->prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
         $stmt->execute(['timezone', $timezone]);
         $stmt->execute(['site_name', $siteName]);
+        $stmt->execute(['site_url', $siteUrl]);
         $stmt->execute(['email_logo', $emailLogo]);
         $stmt->execute(['logo_position', $logoPosition]);
         $stmt->execute(['logo_name', $logoName]);
@@ -311,6 +313,15 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                 <input type="text" name="site_name"
                     value="<?= htmlspecialchars($settings['site_name'] ?? 'WharfList') ?>"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Site URL</label>
+                <input type="url" name="site_url"
+                    value="<?= htmlspecialchars($settings['site_url'] ?? '') ?>"
+                    placeholder="<?= htmlspecialchars(defined('BASE_URL') ? BASE_URL : 'https://example.com') ?>"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Base URL for the application. Leave blank to auto-detect (currently: <?= htmlspecialchars(defined('BASE_URL') ? BASE_URL : 'Unknown') ?>)</p>
             </div>
 
             <div class="mb-4">

@@ -19,7 +19,31 @@ $rootDir = $isInApp ? dirname(__DIR__) : __DIR__;
 define('ROOT_PATH', $rootDir);
 define('APP_PATH', $rootDir . '/app');
 define('DB_PATH', APP_PATH . '/data/wharflist.db');
-define('BASE_URL', (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . "://" . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+
+// Determine BASE_URL
+$baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . "://" . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+
+if (isInstalled()) {
+    require_once APP_PATH . '/database.php';
+    try {
+        $db = Database::getInstance()->getConnection();
+        // Check if settings table exists
+        $check = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'");
+        if ($check && $check->fetch()) {
+            $stmt = $db->query("SELECT value FROM settings WHERE key = 'site_url' LIMIT 1");
+            if ($stmt) {
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!empty($row['value'])) {
+                    $baseUrl = rtrim($row['value'], '/');
+                }
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore error, fall back to auto-detect
+    }
+}
+
+define('BASE_URL', $baseUrl);
 
 // Check if app is installed
 function isInstalled()
