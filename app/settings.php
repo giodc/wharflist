@@ -231,6 +231,17 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $settings[$row['key']] = $row['value'];
 }
 
+// If we just tested SMTP, override settings with the posted values
+// so the form fields don't revert to the database values
+if (isset($_POST['action']) && $_POST['action'] === 'test_smtp') {
+    $settings['smtp_host'] = $_POST['smtp_host'] ?? $settings['smtp_host'];
+    $settings['smtp_port'] = $_POST['smtp_port'] ?? $settings['smtp_port'];
+    $settings['smtp_user'] = $_POST['smtp_user'] ?? $settings['smtp_user'];
+    $settings['smtp_from'] = $_POST['smtp_from'] ?? $settings['smtp_from'];
+    $settings['emails_per_batch'] = $_POST['emails_per_batch'] ?? $settings['emails_per_batch'];
+    $settings['delay_between_emails'] = $_POST['delay_between_emails'] ?? $settings['delay_between_emails'];
+}
+
 // Determine active tab based on action
 $activeTab = 'general';
 if (isset($_POST['action'])) {
