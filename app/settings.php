@@ -328,16 +328,14 @@ $additionalHead = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/
                 <label class="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
                 <select name="timezone"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="UTC" <?= ($settings['timezone'] ?? 'UTC') === 'UTC' ? 'selected' : '' ?>>UTC</option>
-                    <option value="America/New_York" <?= ($settings['timezone'] ?? '') === 'America/New_York' ? 'selected' : '' ?>>America/New_York</option>
-                    <option value="America/Chicago" <?= ($settings['timezone'] ?? '') === 'America/Chicago' ? 'selected' : '' ?>>America/Chicago</option>
-                    <option value="America/Denver" <?= ($settings['timezone'] ?? '') === 'America/Denver' ? 'selected' : '' ?>>America/Denver</option>
-                    <option value="America/Los_Angeles" <?= ($settings['timezone'] ?? '') === 'America/Los_Angeles' ? 'selected' : '' ?>>America/Los_Angeles</option>
-                    <option value="Europe/London" <?= ($settings['timezone'] ?? '') === 'Europe/London' ? 'selected' : '' ?>>Europe/London</option>
-                    <option value="Europe/Paris" <?= ($settings['timezone'] ?? '') === 'Europe/Paris' ? 'selected' : '' ?>>
-                        Europe/Paris</option>
-                    <option value="Asia/Tokyo" <?= ($settings['timezone'] ?? '') === 'Asia/Tokyo' ? 'selected' : '' ?>>
-                        Asia/Tokyo</option>
+                    <?php
+                    $currentTimezone = $settings['timezone'] ?? 'UTC';
+                    $timezones = DateTimeZone::listIdentifiers();
+                    foreach ($timezones as $tz) {
+                        $selected = $tz === $currentTimezone ? 'selected' : '';
+                        echo "<option value=\"$tz\" $selected>$tz</option>";
+                    }
+                    ?>
                 </select>
             </div>
 

@@ -8,6 +8,10 @@
     <script src="https://unpkg.com/tailwindcss-jit-cdn"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <?php 
+    // Safety net: Check for due scheduled jobs on every page load
+    include __DIR__ . '/../check-scheduler.php'; 
+    ?>
     <?php if (isset($additionalHead)): ?>
         <?= $additionalHead ?>
     <?php endif; ?>

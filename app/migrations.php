@@ -29,7 +29,7 @@ function runMigrations($db, $force = false)
 {
     // Check current version
     $currentVersion = getMigrationsVersion($db);
-    $latestVersion = 3; // Increment this when adding new migrations
+    $latestVersion = 4; // Increment this when adding new migrations
 
     // Skip if already at latest version (unless forced)
     if (!$force && $currentVersion >= $latestVersion) {
@@ -127,6 +127,27 @@ function runMigrations($db, $force = false)
             ");
             error_log("Migration: Created backup_codes table");
             return true;
+        },
+        'add_scheduled_at_to_queue_jobs' => function ($db) {
+            // Check if column already exists
+            $stmt = $db->query("PRAGMA table_info(queue_jobs)");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $hasScheduledAt = false;
+
+            foreach ($columns as $column) {
+                if ($column['name'] === 'scheduled_at') {
+                    $hasScheduledAt = true;
+                    break;
+                }
+            }
+
+            if (!$hasScheduledAt) {
+                $db->exec("ALTER TABLE queue_jobs ADD COLUMN scheduled_at DATETIME");
+                $db->exec("CREATE INDEX IF NOT EXISTS idx_queue_jobs_scheduled ON queue_jobs(scheduled_at)");
+                error_log("Migration: Added scheduled_at column to queue_jobs");
+                return true;
+            }
+            return false;
         }
     ];
 
@@ -157,5 +178,5 @@ function runMigrations($db, $force = false)
 function needsMigrations($db)
 {
     $currentVersion = getMigrationsVersion($db);
-    return $currentVersion < 3; // Update this when adding new migrations
+    return $currentVersion < 4; // Update this when adding new migrations
 }

@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $subject = trim($_POST['subject'] ?? '');
     $body = trim($_POST['body'] ?? '');
     $editId = $_POST['edit_id'] ?? null;
+    $scheduledAt = $_POST['scheduled_at'] ?? null;
 
     if (empty($listIds) || empty($subject) || empty($body)) {
         $error = 'All fields are required (including at least one list)';
@@ -73,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header("Location: compose.php?edit=" . $draftId . "&success=saved");
                 exit;
             }
-        } elseif ($action === 'send') {
+        } elseif ($action === 'send' || $action === 'schedule') {
             // Get verified subscribers count from all selected lists
             $listIdsArray = is_array($listIds) ? $listIds : [$listIds];
             $placeholders = str_repeat('?,', count($listIdsArray) - 1) . '?';
@@ -89,25 +90,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Create or update campaign - store first list ID for backwards compatibility
                 $firstListId = $listIdsArray[0];
+                $status = $action === 'schedule' ? 'scheduled' : 'sent';
+                
+                // Format scheduled date if present
+                $formattedScheduledAt = null;
+                if ($action === 'schedule' && $scheduledAt) {
+                    // Convert input time (which is in site timezone) to UTC for storage
+                    // This ensures consistent comparison with CURRENT_TIMESTAMP (UTC) in worker
+                    try {
+                        // Create DateTime in the configured timezone
+                        $siteTimezone = date_default_timezone_get();
+                        $dt = new DateTime($scheduledAt, new DateTimeZone($siteTimezone));
+                        
+                        // Convert to UTC
+                        $dt->setTimezone(new DateTimeZone('UTC'));
+                        $formattedScheduledAt = $dt->format('Y-m-d H:i:s');
+                    } catch (Exception $e) {
+                        // Fallback if date parsing fails
+                        $formattedScheduledAt = date('Y-m-d H:i:s', strtotime($scheduledAt)); 
+                    }
+                }
+
                 if ($editId) {
-                    $stmt = $db->prepare("UPDATE email_campaigns SET list_id = ?, subject = ?, body = ?, status = 'sent', sent_count = 0, sent_at = CURRENT_TIMESTAMP WHERE id = ?");
-                    $stmt->execute([$firstListId, $subject, $body, $editId]);
+                    $stmt = $db->prepare("UPDATE email_campaigns SET list_id = ?, subject = ?, body = ?, status = ?, sent_count = 0, sent_at = NULL WHERE id = ?");
+                    $stmt->execute([$firstListId, $subject, $body, $status, $editId]);
                     $campaignId = $editId;
                 } else {
-                    $stmt = $db->prepare("INSERT INTO email_campaigns (list_id, subject, body, status, sent_count, sent_at) VALUES (?, ?, ?, 'sent', 0, CURRENT_TIMESTAMP)");
-                    $stmt->execute([$firstListId, $subject, $body]);
+                    $stmt = $db->prepare("INSERT INTO email_campaigns (list_id, subject, body, status, sent_count, sent_at) VALUES (?, ?, ?, ?, 0, NULL)");
+                    $stmt->execute([$firstListId, $subject, $body, $status]);
                     $campaignId = $db->lastInsertId();
                 }
 
                 // Create queue job with all selected list IDs (stored as comma-separated for worker)
                 $listIdsString = implode(',', $listIdsArray);
-                $stmt = $db->prepare("INSERT INTO queue_jobs (campaign_id, list_ids) VALUES (?, ?)");
-                $stmt->execute([$campaignId, $listIdsString]);
-                $jobId = $db->lastInsertId();
+                
+                if ($action === 'schedule' && $formattedScheduledAt) {
+                    $stmt = $db->prepare("INSERT INTO queue_jobs (campaign_id, list_ids, status, scheduled_at) VALUES (?, ?, 'scheduled', ?)");
+                    $stmt->execute([$campaignId, $listIdsString, $formattedScheduledAt]);
+                    $jobId = $db->lastInsertId();
+                    
+                    // Calculate delay for background waiter (if within 24 hours)
+                    $delay = strtotime($formattedScheduledAt) - time();
+                    if ($delay > 0 && $delay < 86400) {
+                        // Spawn a sleeping process that will wake up and trigger the worker
+                        // Use robust argument passing to sh to handle paths with spaces (e.g. Herd)
+                        $workerPath = __DIR__ . "/worker.php";
+                        $phpBinary = PHP_BINARY;
+                        
+                        $cmd = "nohup sh -c 'sleep \"$0\" && exec \"$1\" \"$2\"' " . 
+                               (int)$delay . " " . 
+                               escapeshellarg($phpBinary) . " " . 
+                               escapeshellarg($workerPath) . 
+                               " < /dev/null > /dev/null 2>&1 &";
+                               
+                        exec($cmd);
+                    }
+                } else {
+                    $stmt = $db->prepare("INSERT INTO queue_jobs (campaign_id, list_ids) VALUES (?, ?)");
+                    $stmt->execute([$campaignId, $listIdsString]);
+                    $jobId = $db->lastInsertId();
 
-                // Trigger worker
-                $workerCmd = "php " . __DIR__ . "/worker.php > /dev/null 2>&1 &";
-                exec($workerCmd);
+                    // Trigger worker immediately
+                    $workerPath = __DIR__ . "/worker.php";
+                    $phpBinary = PHP_BINARY;
+                    $workerCmd = "nohup " . escapeshellarg($phpBinary) . " " . escapeshellarg($workerPath) . " < /dev/null > /dev/null 2>&1 &";
+                    exec($workerCmd);
+                }
 
                 // Redirect to status
                 header("Location: campaign-status.php?job_id=" . $jobId);
@@ -217,6 +265,7 @@ $additionalHead = '
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="action" id="form-action" value="send">
                 <input type="hidden" name="body" id="body-content">
+                <input type="hidden" name="scheduled_at" id="scheduled-at-input">
                 <?php if ($campaignId): ?>
                     <input type="hidden" name="edit_id" value="<?= $campaignId ?>">
                 <?php endif; ?>
@@ -309,6 +358,16 @@ $additionalHead = '
                             Send Now
                         </button>
 
+                        <button type="button" onclick="showScheduleModal()"
+                            class="w-full inline-flex items-center justify-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                </path>
+                            </svg>
+                            Schedule
+                        </button>
+
                         <button type="button" onclick="saveDraft()"
                             class="w-full inline-flex items-center justify-center px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -334,6 +393,47 @@ $additionalHead = '
                 </div>
             </div>
         </div>
+
+        <!-- Schedule Modal -->
+        <template x-teleport="body">
+            <div x-show="showSchedule" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+                style="display: none;">
+                <div @click.away="showSchedule = false" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    class="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Schedule Campaign</h3>
+                    <p class="text-gray-600 mb-4">Choose when to send this campaign:</p>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date & Time</label>
+                        <input type="datetime-local" id="schedule-datetime" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <p class="text-xs text-gray-500 mt-2">
+                            <span class="text-yellow-600 font-medium">Note:</span> Without a system cron job, the email will be sent when the next visitor accesses the site after this time.
+                        </p>
+                    </div>
+
+                    <div class="flex gap-3 justify-end">
+                        <button @click="showSchedule = false"
+                            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button @click="showSchedule = false; confirmSchedule()"
+                            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                            Schedule
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
 
         <!-- Send Confirmation Modal -->
         <template x-teleport="body">
@@ -423,6 +523,7 @@ $additionalHead = '
             lists: initialLists,
             selected: initialSelected.map(id => parseInt(id)).filter(id => !isNaN(id)),
             showSendConfirm: false,
+            showSchedule: false,
             showError: false,
             errorMessage: '',
 
@@ -552,6 +653,39 @@ $additionalHead = '
         } else {
             console.error('Could not access Alpine data');
         }
+    }
+
+    function showScheduleModal() {
+        if (!validateForm()) return;
+
+        const gridContainer = document.querySelector('.grid.grid-cols-1.lg\\:grid-cols-3');
+        if (gridContainer && typeof Alpine !== 'undefined') {
+            const alpineData = Alpine.$data(gridContainer);
+            alpineData.showSchedule = true;
+            
+            // Set default time to tomorrow same time
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setMinutes(tomorrow.getMinutes() - tomorrow.getTimezoneOffset());
+            
+            // Wait for modal to open
+            setTimeout(() => {
+                document.getElementById('schedule-datetime').value = tomorrow.toISOString().slice(0, 16);
+            }, 100);
+        }
+    }
+
+    function confirmSchedule() {
+        const scheduleTime = document.getElementById('schedule-datetime').value;
+        if (!scheduleTime) {
+            alert('Please select a time');
+            return;
+        }
+        
+        document.getElementById('body-content').value = quill.root.innerHTML;
+        document.getElementById('form-action').value = 'schedule';
+        document.getElementById('scheduled-at-input').value = scheduleTime;
+        document.getElementById('compose-form').submit();
     }
 
     function confirmSend() {

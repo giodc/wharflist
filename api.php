@@ -47,28 +47,37 @@ class RateLimiter
 
     public function check($ipAddress, $siteId, $maxAttempts = 5, $timeWindow = 3600)
     {
+        global $debugLog;
+        if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: Checking $ipAddress for site $siteId\n", FILE_APPEND);
+        
         $stmt = $this->db->prepare("SELECT attempts, last_attempt FROM rate_limits WHERE ip_address = ? AND site_id = ?");
         $stmt->execute([$ipAddress, $siteId]);
         $limit = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: Fetch done. Found: " . ($limit ? 'Yes' : 'No') . "\n", FILE_APPEND);
 
         if ($limit) {
             $timeDiff = time() - strtotime($limit['last_attempt']);
 
             if ($timeDiff > $timeWindow) {
                 // Reset counter
+                if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: Resetting counter\n", FILE_APPEND);
                 $stmt = $this->db->prepare("UPDATE rate_limits SET attempts = 1, last_attempt = CURRENT_TIMESTAMP WHERE ip_address = ? AND site_id = ?");
                 $stmt->execute([$ipAddress, $siteId]);
                 return true;
             } elseif ($limit['attempts'] >= $maxAttempts) {
+                if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: Too many attempts\n", FILE_APPEND);
                 return false;
             } else {
                 // Increment counter
+                if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: Incrementing counter\n", FILE_APPEND);
                 $stmt = $this->db->prepare("UPDATE rate_limits SET attempts = attempts + 1, last_attempt = CURRENT_TIMESTAMP WHERE ip_address = ? AND site_id = ?");
                 $stmt->execute([$ipAddress, $siteId]);
                 return true;
             }
         } else {
             // First attempt
+            if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: First attempt insert\n", FILE_APPEND);
             $stmt = $this->db->prepare("INSERT INTO rate_limits (ip_address, site_id) VALUES (?, ?)");
             $stmt->execute([$ipAddress, $siteId]);
             return true;
@@ -99,13 +108,21 @@ try {
     $rawInput = file_get_contents('php://input');
     $data = json_decode($rawInput, true);
 
+    // DEBUG LOGGING
+    $debugLog = __DIR__ . '/app/data/api_debug.log';
+    $logMsg = date('[Y-m-d H:i:s] ') . "Request received from " . $_SERVER['REMOTE_ADDR'] . "\n";
+    file_put_contents($debugLog, $logMsg, FILE_APPEND);
+
     if ($data === null) {
+        file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Invalid JSON\n", FILE_APPEND);
         error_log("Invalid JSON input: " . $rawInput);
         sendResponse(false, 'Invalid request data');
     }
 
     $apiKey = $data['api_key'] ?? '';
     $email = $data['email'] ?? '';
+    
+    file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Processing email: $email\n", FILE_APPEND);
     $customData = $data['custom_data'] ?? [];
     $honeypot = $data['_hp'] ?? null;
     $timestamp = $data['_t'] ?? 0;
@@ -146,8 +163,11 @@ try {
     $site = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$site) {
+        file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Invalid API Key\n", FILE_APPEND);
         sendResponse(false, 'Invalid API key');
     }
+    
+    file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Site found: {$site['name']}\n", FILE_APPEND);
 
     // Check domain (if provided in request)
     if (isset($_SERVER['HTTP_REFERER'])) {
@@ -181,8 +201,11 @@ try {
     $rateLimiter = new RateLimiter($db);
 
     if (!$rateLimiter->check($ipAddress, $site['id'])) {
+        file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Rate limit hit\n", FILE_APPEND);
         sendResponse(false, 'Too many attempts. Please try again later.');
     }
+
+    file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Rate limit passed, checking existence\n", FILE_APPEND);
 
     // Check if email already exists (globally, not per-list)
     $stmt = $db->prepare("SELECT * FROM subscribers WHERE email = ?");
@@ -231,6 +254,8 @@ try {
 
     // New subscriber - create and add to list
     $token = bin2hex(random_bytes(32));
+    
+    file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Inserting new subscriber\n", FILE_APPEND);
 
     // Insert subscriber (without list_id - we use junction table)
     $stmt = $db->prepare("INSERT INTO subscribers (email, site_id, verification_token, custom_data) VALUES (?, ?, ?, ?)");
@@ -242,11 +267,14 @@ try {
     ]);
 
     if (!$result) {
+        file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Insert failed: " . json_encode($stmt->errorInfo()) . "\n", FILE_APPEND);
         error_log("Failed to insert subscriber: " . json_encode($stmt->errorInfo()));
         sendResponse(false, 'Failed to subscribe. Please try again.');
     }
 
     $subscriberId = $db->lastInsertId();
+    
+    file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Subscriber ID $subscriberId inserted. Adding to list.\n", FILE_APPEND);
 
     // Add to list via junction table
     $stmt = $db->prepare("INSERT INTO subscriber_lists (subscriber_id, list_id) VALUES (?, ?)");
@@ -255,9 +283,12 @@ try {
     error_log("Subscriber inserted: ID=$subscriberId, Email=$email, List={$site['list_id']}, Site={$site['id']}");
 
     // Send verification email
+    file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Sending verification email...\n", FILE_APPEND);
     if (sendVerificationEmail($email, $token, $db)) {
+        file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Email sent successfully.\n", FILE_APPEND);
         sendResponse(true, 'Please check your email to verify your subscription');
     } else {
+        file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "Email sending failed (or skipped).\n", FILE_APPEND);
         sendResponse(true, 'Subscribed! Verification email will be sent shortly.');
     }
 

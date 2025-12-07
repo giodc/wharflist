@@ -27,11 +27,13 @@ foreach ($lists as $l) {
 
 // Get all campaigns (no limit)
 $stmt = $db->query("SELECT ec.*, l.name as list_name, 
-                    qj.id as job_id, qj.status as job_status, qj.progress, qj.total
+                    qj.id as job_id, qj.status as job_status, qj.progress, qj.total, qj.scheduled_at
                     FROM email_campaigns ec 
                     LEFT JOIN lists l ON ec.list_id = l.id 
-                    LEFT JOIN queue_jobs qj ON ec.id = qj.campaign_id
-                    WHERE ec.status IN ('draft', 'sent')
+                    LEFT JOIN queue_jobs qj ON qj.id = (
+                        SELECT id FROM queue_jobs WHERE campaign_id = ec.id ORDER BY id DESC LIMIT 1
+                    )
+                    WHERE ec.status IN ('draft', 'sent', 'scheduled')
                     ORDER BY COALESCE(ec.sent_at, ec.created_at) DESC");
 $campaigns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -65,6 +67,8 @@ $pageTitle = 'Campaigns';
                             </div>
                             <?php if ($campaign['status'] === 'draft'): ?>
                                 <span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded-full">Draft</span>
+                            <?php elseif ($campaign['status'] === 'scheduled'): ?>
+                                <span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">Scheduled</span>
                             <?php elseif ($campaign['job_status']): ?>
                                 <?php if ($campaign['job_status'] === 'pending'): ?>
                                     <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">Queued</span>
@@ -96,6 +100,18 @@ $pageTitle = 'Campaigns';
                             </div>
                             <?php if ($campaign['status'] === 'draft'): ?>
                                 <div>Created: <?= date('M d, Y H:i', strtotime($campaign['created_at'])) ?></div>
+                            <?php elseif ($campaign['status'] === 'scheduled'): ?>
+                                <div>Scheduled for: 
+                                    <?php 
+                                    if ($campaign['scheduled_at']) {
+                                        $dt = new DateTime($campaign['scheduled_at'], new DateTimeZone('UTC'));
+                                        $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                                        echo $dt->format('M d, Y H:i');
+                                    } else {
+                                        echo 'Pending...';
+                                    }
+                                    ?>
+                                </div>
                             <?php elseif ($campaign['job_status'] === 'processing' && $campaign['total'] > 0): ?>
                                 <div><?= $campaign['progress'] ?> / <?= $campaign['total'] ?> sent</div>
                                 <div><?= date('M d, Y H:i', strtotime($campaign['sent_at'])) ?></div>

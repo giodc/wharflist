@@ -38,7 +38,8 @@ $jobId = $_GET['job_id'] ?? null;
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $returnTo === 'campaign-status') {
     // Trigger worker
     $workerPath = __DIR__ . '/worker.php';
-    $command = "php " . escapeshellarg($workerPath) . " > /dev/null 2>&1 &";
+    $phpBinary = PHP_BINARY;
+    $command = "nohup " . escapeshellarg($phpBinary) . " " . escapeshellarg($workerPath) . " < /dev/null > /dev/null 2>&1 &";
     exec($command);
     
     // If AJAX request, return JSON
@@ -60,7 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $returnTo === 'campaign-status') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Trigger worker
     $workerPath = __DIR__ . '/worker.php';
-    $command = "php " . escapeshellarg($workerPath) . " > /dev/null 2>&1 &";
+    $phpBinary = PHP_BINARY;
+    $command = "nohup " . escapeshellarg($phpBinary) . " " . escapeshellarg($workerPath) . " < /dev/null > /dev/null 2>&1 &";
     
     exec($command, $output, $return_var);
     

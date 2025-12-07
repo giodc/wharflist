@@ -38,13 +38,16 @@ class SimpleMailer {
                 "tcp://{$this->host}:{$this->port}",
                 $errno,
                 $errstr,
-                30
+                10
             );
 
             if (!$socket) {
                 error_log("SMTP connection failed: $errstr ($errno)");
                 return false;
             }
+
+            // Set read/write timeout
+            stream_set_timeout($socket, 10);
 
             $this->readResponse($socket);
 
@@ -117,12 +120,28 @@ class SimpleMailer {
 
     private function readResponse($socket) {
         $response = '';
-        while ($line = fgets($socket, 515)) {
+        while (($line = fgets($socket, 515)) !== false) {
             $response .= $line;
             if (substr($line, 3, 1) === ' ') {
                 break;
             }
+            
+            $info = stream_get_meta_data($socket);
+            if ($info['timed_out']) {
+                error_log('SMTP Timeout during read');
+                throw new Exception('SMTP Timeout');
+            }
         }
+        
+        if ($response === '') {
+             $info = stream_get_meta_data($socket);
+             if ($info['timed_out']) {
+                 throw new Exception('SMTP Timeout (empty response)');
+             }
+             // Connection closed or other error
+             // We can check feof($socket) but empty response usually means closed connection
+        }
+        
         return $response;
     }
 }

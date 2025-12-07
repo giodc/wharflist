@@ -8,6 +8,26 @@ $auth->requireLogin();
 
 $db = Database::getInstance()->getConnection();
 
+// Handle Cancellation
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_job') {
+    $jobId = $_POST['job_id'] ?? 0;
+    $campaignId = $_POST['campaign_id'] ?? 0;
+
+    if ($jobId && $campaignId) {
+        // 1. Update Job status to cancelled
+        $stmt = $db->prepare("UPDATE queue_jobs SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP WHERE id = ?");
+        $stmt->execute([$jobId]);
+
+        // 2. Update Campaign status back to draft
+        $stmt = $db->prepare("UPDATE email_campaigns SET status = 'draft' WHERE id = ?");
+        $stmt->execute([$campaignId]);
+
+        // 3. Redirect to compose page
+        header("Location: compose.php?edit=" . $campaignId . "&success=updated");
+        exit;
+    }
+}
+
 $jobId = $_GET['job_id'] ?? null;
 if (!$jobId) {
     header('Location: compose.php');
@@ -53,6 +73,8 @@ $pageTitle = 'Campaign Status';
             <div>
                 <?php if ($job['status'] === 'pending'): ?>
                     <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-semibold rounded-full">⏳ Queued</span>
+                <?php elseif ($job['status'] === 'scheduled'): ?>
+                    <span class="px-3 py-1 bg-purple-100 text-purple-800 text-sm font-semibold rounded-full">📅 Scheduled</span>
                 <?php elseif ($job['status'] === 'processing'): ?>
                     <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded-full">🔄 Sending...</span>
                 <?php elseif ($job['status'] === 'completed'): ?>
@@ -62,11 +84,24 @@ $pageTitle = 'Campaign Status';
                 <?php endif; ?>
             </div>
             
-            <?php if ($job['status'] === 'pending' || $job['status'] === 'processing'): ?>
-            <a href="trigger-worker.php?return=campaign-status&job_id=<?= $jobId ?>" 
-               class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg transition">
-                🔄 Trigger Worker
-            </a>
+            <?php if ($job['status'] === 'pending' || $job['status'] === 'processing' || $job['status'] === 'scheduled'): ?>
+            <div class="flex items-center gap-2">
+                <?php if ($job['status'] !== 'scheduled'): ?>
+                <a href="trigger-worker.php?return=campaign-status&job_id=<?= $jobId ?>" 
+                   class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg transition">
+                    🔄 Trigger Worker
+                </a>
+                <?php endif; ?>
+                
+                <form method="POST" onsubmit="return confirm('Are you sure? This will stop sending immediately and revert the campaign to draft mode.');">
+                    <input type="hidden" name="action" value="cancel_job">
+                    <input type="hidden" name="job_id" value="<?= $jobId ?>">
+                    <input type="hidden" name="campaign_id" value="<?= $job['campaign_id'] ?>">
+                    <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition">
+                        ⛔ Stop & Revert to Draft
+                    </button>
+                </form>
+            </div>
             <?php endif; ?>
         </div>
 
@@ -86,12 +121,39 @@ $pageTitle = 'Campaign Status';
 
         <!-- Times -->
         <div class="text-sm text-gray-600 space-y-2">
-            <div><strong>Created:</strong> <?= date('Y-m-d H:i:s', strtotime($job['created_at'])) ?></div>
+            <div><strong>Created:</strong> 
+                <?php
+                $dt = new DateTime($job['created_at'], new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                echo $dt->format('Y-m-d H:i:s');
+                ?>
+            </div>
+            <?php if (isset($job['scheduled_at']) && $job['scheduled_at']): ?>
+            <div class="text-purple-600"><strong>Scheduled for:</strong> 
+                <?php
+                $dt = new DateTime($job['scheduled_at'], new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                echo $dt->format('Y-m-d H:i:s');
+                ?>
+            </div>
+            <?php endif; ?>
             <?php if ($job['started_at']): ?>
-            <div><strong>Started:</strong> <?= date('Y-m-d H:i:s', strtotime($job['started_at'])) ?></div>
+            <div><strong>Started:</strong> 
+                <?php
+                $dt = new DateTime($job['started_at'], new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                echo $dt->format('Y-m-d H:i:s');
+                ?>
+            </div>
             <?php endif; ?>
             <?php if ($job['completed_at']): ?>
-            <div><strong>Completed:</strong> <?= date('Y-m-d H:i:s', strtotime($job['completed_at'])) ?></div>
+            <div><strong>Completed:</strong> 
+                <?php
+                $dt = new DateTime($job['completed_at'], new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                echo $dt->format('Y-m-d H:i:s');
+                ?>
+            </div>
             <?php endif; ?>
             <?php if ($job['error']): ?>
             <div class="text-red-600"><strong>Error:</strong> <?= htmlspecialchars($job['error']) ?></div>
