@@ -8,6 +8,11 @@ class Database {
         try {
             $this->conn = new PDO('sqlite:' . DB_PATH);
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // Enable WAL mode for better concurrency (prevents locking issues)
+            $this->conn->exec('PRAGMA journal_mode = WAL;');
+            $this->conn->exec('PRAGMA synchronous = NORMAL;');
+            $this->conn->exec('PRAGMA busy_timeout = 5000;'); // Wait up to 5s for locks
         } catch(PDOException $e) {
             die("Connection failed: " . $e->getMessage());
         }

@@ -80,6 +80,7 @@ class RateLimiter
             if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: First attempt insert\n", FILE_APPEND);
             $stmt = $this->db->prepare("INSERT INTO rate_limits (ip_address, site_id) VALUES (?, ?)");
             $stmt->execute([$ipAddress, $siteId]);
+            if (isset($debugLog)) file_put_contents($debugLog, date('[Y-m-d H:i:s] ') . "RateLimiter: Insert done\n", FILE_APPEND);
             return true;
         }
     }
