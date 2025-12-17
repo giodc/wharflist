@@ -225,6 +225,11 @@ $additionalHead = '
     .ql-editor h1:first-child, .ql-editor h2:first-child, .ql-editor h3:first-child {
         margin-top: 0;
     }
+    /* Fix z-index for Quill toolbar dropdowns */
+    .ql-toolbar.ql-snow + .ql-container.ql-snow {
+        border-top: 0px;
+        z-index: -1;
+    }
 </style>
 ';
 ?>
